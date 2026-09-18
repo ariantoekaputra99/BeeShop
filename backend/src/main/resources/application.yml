@@ -1,0 +1,20 @@
+server:
+  port: ${SERVER_PORT:8081}
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/beeshop}
+    username: ${SPRING_DATASOURCE_USERNAME:beeuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:bee123}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+app:
+  cors-origin: ${CORS_ORIGIN:http://localhost:5173}
+  payment:
+    server-key: ${MIDTRANS_SERVER_KEY:}
+    client-key: ${MIDTRANS_CLIENT_KEY:}
+    sandbox: ${MIDTRANS_SANDBOX:true}
+  shipping:
+    provider: ${SHIPPING_PROVIDER:mock}
+    api-key: ${SHIPPING_API_KEY:}
