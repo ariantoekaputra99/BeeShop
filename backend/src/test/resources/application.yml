@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:beeshop;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+app:
+  cors-origins: http://localhost:5173
+  storefront-url: http://localhost:5173
+  admin:
+    bootstrap-username: owner
+    bootstrap-password: owner-password-123
+    max-failed-attempts: 3
+    lock-minutes: 15
+    login-attempts-per-ip: 10000
+  integration-api-key: test-integration-key
+  seed-demo-data: false
+  order:
+    payment-timeout-minutes: 60
+    expiry-enabled: false
+  payment:
+    provider: mock
+  shipping:
+    provider: mock
+    origin-city: Jakarta
