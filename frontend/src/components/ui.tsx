@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { OrderStatus } from '../types';
 import { STATUS_COLOR, STATUS_LABEL } from '../lib/format';
+import { imageSrc } from '../lib/api';
 
 export const inputCls = 'w-full rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100';
 
@@ -19,8 +20,9 @@ export function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 export function ProductImage({ src, alt, className = '' }: { src?: string; alt: string; className?: string }) {
-  return src
-    ? <img src={src} alt={alt} loading="lazy" className={`object-cover ${className}`} />
+  const [broken, setBroken] = useState(false);
+  return src && !broken
+    ? <img src={imageSrc(src)} alt={alt} loading="lazy" onError={() => setBroken(true)} className={`object-cover ${className}`} />
     : <div aria-hidden className={`flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-50 text-5xl ${className}`}>🛍️</div>;
 }
 

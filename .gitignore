@@ -23,6 +23,10 @@
 hs_err_pid*
 replay_pid*
 
+# Gambar produk hasil upload (lokal)
+data/
+backend/data/
+
 # Build output
 backend/target/
 frontend/node_modules/

@@ -27,6 +27,8 @@ services:
         required: false
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/beeshop
+      IMAGE_DIR: /app/data/images
+    volumes: [beeshop_images:/app/data]
     ports: ['8081:8081']
     profiles: [app]
 
@@ -41,3 +43,4 @@ services:
 
 volumes:
   beeshop_data: {}
+  beeshop_images: {}

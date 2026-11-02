@@ -33,6 +33,10 @@ spring:
     open-in-view: false
   jackson:
     default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 management:
   endpoints:
@@ -77,3 +81,8 @@ app:
     origin-id: ${SHIPPING_ORIGIN_ID:}
     couriers: ${SHIPPING_COURIERS:jne,sicepat,jnt,anteraja}
     cache-ttl-minutes: ${SHIPPING_CACHE_TTL_MINUTES:10}
+  storage:
+    # Lokasi file gambar produk. Relatif terhadap folder tempat backend dijalankan.
+    image-dir: ${IMAGE_DIR:./data/images}
+    max-image-bytes: 5242880
+    max-image-dimension: 1600

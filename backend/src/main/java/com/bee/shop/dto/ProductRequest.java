@@ -11,7 +11,9 @@ public record ProductRequest(
         @NotNull @Min(0) Integer stock,
         @NotNull @Min(1) @Max(100_000) Integer weightGram,
         @Size(max = 100) String category,
-        @Size(max = 1024) String imageUrl,
+        @Size(max = 1024)
+        @Pattern(regexp = "^$|^(https://\\S+|/api/images/[0-9a-f-]{36}\\.(jpg|png))$",
+                message = "harus gambar hasil upload atau URL https") String imageUrl,
         @Size(max = 4000) String description,
         Boolean active
 ) {}

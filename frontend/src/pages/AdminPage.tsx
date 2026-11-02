@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AdminRole, AdminSession, AdminUser, DashboardStats, Order, OrderStatus, Page, Product } from '../types';
 import { ApiError, api, qs } from '../lib/api';
 import { STATUS_LABEL, dateTime, money } from '../lib/format';
-import { Alert, Field, StatusBadge, inputCls } from '../components/ui';
+import { Alert, Field, ProductImage, StatusBadge, inputCls } from '../components/ui';
 import { OrderDetail } from '../components/OrderDetail';
+import { ImageUploader } from '../components/ImageUploader';
 
 const SESSION_KEY = 'beeshop.adminSession';
 
@@ -287,7 +288,10 @@ function Products(props: TabProps) {
           <Field label="Stok" error={fields.stock}><input required type="number" min={0} className={inputCls} value={form.stock} onChange={set('stock')} /></Field>
           <Field label="Berat per unit (gram)" error={fields.weightGram}><input required type="number" min={1} className={inputCls} value={form.weightGram} onChange={set('weightGram')} /></Field>
           <Field label="Kategori" error={fields.category}><input className={inputCls} value={form.category} onChange={set('category')} /></Field>
-          <div className="sm:col-span-2"><Field label="URL gambar" error={fields.imageUrl}><input type="url" className={inputCls} value={form.imageUrl} onChange={set('imageUrl')} /></Field></div>
+          <div className="sm:col-span-2">
+            <ImageUploader value={form.imageUrl} onChange={url => setForm(f => ({ ...f, imageUrl: url }))}
+              token={props.token} onAuthError={props.onAuthError} error={fields.imageUrl} />
+          </div>
           <div className="sm:col-span-2"><Field label="Deskripsi" error={fields.description}><textarea className={`${inputCls} h-24`} value={form.description} onChange={set('description')} /></Field></div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} /> Tampilkan di toko</label>
           {error && <div className="sm:col-span-2"><Alert>{error}</Alert></div>}
@@ -306,7 +310,12 @@ function Products(props: TabProps) {
           <tbody className="divide-y">
             {data?.content.map(p => (
               <tr key={p.id} className={p.active ? '' : 'text-slate-400'}>
-                <td className="p-3 font-semibold">{p.name}<p className="text-xs font-normal text-slate-500">{p.category}</p></td>
+                <td className="p-3">
+                  <div className="flex items-center gap-3">
+                    <ProductImage src={p.imageUrl} alt={p.name} className="h-12 w-12 shrink-0 rounded-lg text-xl" />
+                    <div className="font-semibold">{p.name}<p className="text-xs font-normal text-slate-500">{p.category}</p></div>
+                  </div>
+                </td>
                 <td className="p-3 font-mono">{p.sku}</td>
                 <td className="p-3">{money(p.price)}</td>
                 <td className={`p-3 ${p.stock <= 5 ? 'font-bold text-rose-600' : ''}`}>{p.stock}</td>
