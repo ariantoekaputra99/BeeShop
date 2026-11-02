@@ -1,20 +1,47 @@
 server:
   port: ${SERVER_PORT:8081}
+  error:
+    include-message: never
+    include-stacktrace: never
+
 spring:
+  application:
+    name: beeshop
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/beeshop}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/beeshop}
     username: ${SPRING_DATASOURCE_USERNAME:beeuser}
     password: ${SPRING_DATASOURCE_PASSWORD:bee123}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:update}
     open-in-view: false
+  jackson:
+    default-property-inclusion: non_null
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
 app:
-  cors-origin: ${CORS_ORIGIN:http://localhost:5173}
+  cors-origins: ${CORS_ORIGINS:http://localhost:5173}
+  storefront-url: ${STOREFRONT_URL:http://localhost:5173}
+  # Wajib diisi untuk mengakses /api/admin/**. Kosong = admin API ditutup.
+  admin-api-key: ${ADMIN_API_KEY:}
+  # Wajib diisi untuk mengakses /api/integrations/beepos/**. Kosong = integrasi ditutup.
+  integration-api-key: ${BEEPOS_INTEGRATION_KEY:}
+  seed-demo-data: ${SEED_DEMO_DATA:true}
+  order:
+    payment-timeout-minutes: ${PAYMENT_TIMEOUT_MINUTES:60}
+    expiry-check-interval-ms: ${EXPIRY_CHECK_INTERVAL_MS:60000}
   payment:
+    # mock | midtrans. Midtrans dipakai otomatis bila server key diisi.
+    provider: ${PAYMENT_PROVIDER:}
     server-key: ${MIDTRANS_SERVER_KEY:}
     client-key: ${MIDTRANS_CLIENT_KEY:}
     sandbox: ${MIDTRANS_SANDBOX:true}
   shipping:
     provider: ${SHIPPING_PROVIDER:mock}
     api-key: ${SHIPPING_API_KEY:}
+    origin-city: ${SHIPPING_ORIGIN_CITY:Jakarta}
