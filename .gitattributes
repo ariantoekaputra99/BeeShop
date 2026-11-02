@@ -1,0 +1,4 @@
+# Script wrapper harus LF agar jalan di macOS/Linux walau di-clone dari Windows
+backend/mvnw text eol=lf
+*.sh text eol=lf
+*.cmd text eol=crlf

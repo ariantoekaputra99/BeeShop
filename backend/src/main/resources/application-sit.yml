@@ -1,0 +1,20 @@
+# =====================================================================
+# SIT: server testing integrasi tim (QA/dev). Data demo boleh, payment
+# boleh mock atau Midtrans sandbox, ongkir boleh mock atau API test key.
+# =====================================================================
+server:
+  forward-headers-strategy: framework
+
+app:
+  seed-demo-data: ${SEED_DEMO_DATA:true}
+  payment:
+    sandbox: true
+
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.bee.shop: DEBUG

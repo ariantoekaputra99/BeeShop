@@ -1,7 +1,10 @@
+# =====================================================================
+# Konfigurasi bersama untuk semua environment.
+# Nilai khusus environment ada di application-{local,sit,uat,prod}.yml.
+# Secret & URL selalu dari environment variable (lihat folder env/).
+# =====================================================================
 server:
   port: ${SERVER_PORT:8081}
-  # Set "framework" bila di belakang reverse proxy (nginx, load balancer) agar IP klien terbaca benar
-  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
   error:
     include-message: never
     include-stacktrace: never
@@ -9,10 +12,15 @@ server:
 spring:
   application:
     name: beeshop
+  profiles:
+    # Tanpa SPRING_PROFILES_ACTIVE, aplikasi berjalan sebagai "local".
+    default: local
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/beeshop}
-    username: ${SPRING_DATASOURCE_USERNAME:beeuser}
-    password: ${SPRING_DATASOURCE_PASSWORD:bee123}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -31,13 +39,16 @@ management:
     web:
       exposure:
         include: health
+  endpoint:
+    health:
+      show-details: never
 
 app:
-  cors-origins: ${CORS_ORIGINS:http://localhost:5173}
-  storefront-url: ${STOREFRONT_URL:http://localhost:5173}
+  cors-origins: ${CORS_ORIGINS}
+  storefront-url: ${STOREFRONT_URL}
   # Wajib diisi untuk mengakses /api/integrations/beepos/**. Kosong = integrasi ditutup.
   integration-api-key: ${BEEPOS_INTEGRATION_KEY:}
-  seed-demo-data: ${SEED_DEMO_DATA:true}
+  seed-demo-data: false
   admin:
     # Hanya dipakai saat tabel admin kosong untuk membuat OWNER pertama.
     bootstrap-username: ${ADMIN_BOOTSTRAP_USERNAME:}
@@ -50,11 +61,11 @@ app:
     payment-timeout-minutes: ${PAYMENT_TIMEOUT_MINUTES:60}
     expiry-check-interval-ms: ${EXPIRY_CHECK_INTERVAL_MS:60000}
   payment:
-    # mock | midtrans. Midtrans dipakai otomatis bila server key diisi.
-    provider: ${PAYMENT_PROVIDER:}
+    # mock | midtrans
+    provider: ${PAYMENT_PROVIDER:mock}
     server-key: ${MIDTRANS_SERVER_KEY:}
     client-key: ${MIDTRANS_CLIENT_KEY:}
-    sandbox: ${MIDTRANS_SANDBOX:true}
+    sandbox: true
   shipping:
     # mock | rajaongkir | biteship
     provider: ${SHIPPING_PROVIDER:mock}
