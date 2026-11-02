@@ -9,6 +9,8 @@ import { CheckoutPage } from './pages/CheckoutPage';
 import { PaymentPage } from './pages/PaymentPage';
 import { TrackOrderPage } from './pages/TrackOrderPage';
 import { AdminPage } from './pages/AdminPage';
+import { ProductDetailPage } from './pages/ProductDetailPage';
+import { productIdFromPath } from './lib/productLink';
 
 export default function App() {
   const route = useRoute();
@@ -22,8 +24,10 @@ export default function App() {
     window.setTimeout(() => setToast(''), 2200);
   }, [cart]);
 
+  const productId = productIdFromPath(route.path);
   let page;
-  if (route.path === '/checkout') page = <CheckoutPage cart={cart} />;
+  if (productId !== null) page = <ProductDetailPage key={productId} productId={productId} onAdd={add} />;
+  else if (route.path === '/checkout') page = <CheckoutPage cart={cart} />;
   else if (route.path.startsWith('/payment/')) page = <PaymentPage orderNumber={decodeURIComponent(route.path.slice('/payment/'.length))} />;
   else if (route.path === '/orders') page = <TrackOrderPage params={route.params} />;
   else if (route.path === '/admin') page = <AdminPage />;

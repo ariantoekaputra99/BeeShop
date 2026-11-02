@@ -1,6 +1,7 @@
 import type { Cart } from '../lib/cart';
 import { money } from '../lib/format';
 import { navigate } from '../lib/router';
+import { productPath } from '../lib/productLink';
 import { ProductImage, QtyStepper } from './ui';
 
 export function CartDrawer({ cart, open, onClose }: { cart: Cart; open: boolean; onClose: () => void }) {
@@ -18,7 +19,7 @@ export function CartDrawer({ cart, open, onClose }: { cart: Cart; open: boolean;
             <div key={l.productId} className="flex gap-4">
               <ProductImage src={l.imageUrl} alt={l.name} className="h-16 w-16 shrink-0 rounded-xl text-2xl" />
               <div className="flex-1">
-                <p className="font-semibold leading-tight">{l.name}</p>
+                <a href={`#${productPath({ id: l.productId, name: l.name })}`} onClick={onClose} className="font-semibold leading-tight hover:underline">{l.name}</a>
                 <p className="text-sm text-orange-600">{money(l.price)}</p>
                 <div className="mt-2 flex items-center justify-between">
                   <QtyStepper value={l.quantity} max={l.stock} onChange={n => cart.setQty(l.productId, n)} />

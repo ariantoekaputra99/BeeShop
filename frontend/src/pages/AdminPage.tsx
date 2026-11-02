@@ -292,7 +292,13 @@ function Products(props: TabProps) {
             <ImageUploader value={form.imageUrl} onChange={url => setForm(f => ({ ...f, imageUrl: url }))}
               token={props.token} onAuthError={props.onAuthError} error={fields.imageUrl} />
           </div>
-          <div className="sm:col-span-2"><Field label="Deskripsi" error={fields.description}><textarea className={`${inputCls} h-24`} value={form.description} onChange={set('description')} /></Field></div>
+          <div className="sm:col-span-2">
+            <Field label="Deskripsi" error={fields.description}>
+              <textarea className={`${inputCls} h-40`} maxLength={4000} value={form.description} onChange={set('description')}
+                placeholder={'Paragraf pertama tampil sebagai ringkasan di katalog.\n\nKeunggulan:\n- Poin pertama\n- Poin kedua'} />
+            </Field>
+            <p className="mt-1 text-xs text-slate-500">Baris kosong = paragraf baru · baris diawali “- ” = poin · baris diakhiri “:” = subjudul · {form.description.length}/4000</p>
+          </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} /> Tampilkan di toko</label>
           {error && <div className="sm:col-span-2"><Alert>{error}</Alert></div>}
           <div className="flex gap-2 sm:col-span-2">
