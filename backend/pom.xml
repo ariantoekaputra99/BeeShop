@@ -18,6 +18,8 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- Versi Lombok bawaan Spring Boot 3.3 (1.18.34) tidak mendukung JDK 24+. -->
+        <lombok.version>1.18.48</lombok.version>
     </properties>
 
     <dependencies>
@@ -85,6 +87,21 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- Sejak JDK 23, javac tidak lagi menjalankan annotation processor dari classpath
+                         secara otomatis. Daftarkan Lombok eksplisit agar build jalan di JDK 21 maupun yang lebih baru. -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
