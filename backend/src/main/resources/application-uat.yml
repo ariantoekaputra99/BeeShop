@@ -1,0 +1,18 @@
+# =====================================================================
+# UAT: dipakai user/bisnis untuk acceptance test. Harus semirip mungkin
+# dengan prod: Midtrans SANDBOX, ongkir API sungguhan, tanpa data demo.
+# EnvironmentGuard menolak start bila konfigurasi tidak memenuhi syarat.
+# =====================================================================
+server:
+  forward-headers-strategy: framework
+
+app:
+  seed-demo-data: false
+  payment:
+    provider: midtrans
+    sandbox: true
+
+logging:
+  level:
+    root: INFO
+    com.bee.shop: INFO

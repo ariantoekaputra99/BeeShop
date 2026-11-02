@@ -28,9 +28,12 @@ backend/target/
 frontend/node_modules/
 frontend/dist/
 
-# Secrets
+# Secrets: hanya env/local.env + template *.example yang boleh di-commit
 .env
 *.env.local
+env/*.env
+!env/local.env
+frontend/.env.*.local
 
 # IDE
 .idea/

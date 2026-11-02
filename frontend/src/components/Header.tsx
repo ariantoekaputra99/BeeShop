@@ -1,6 +1,20 @@
+const APP_ENV = import.meta.env.VITE_APP_ENV ?? 'local';
+
+/** Penanda environment non-prod supaya tester tidak tertukar dengan toko asli. */
+function EnvBanner() {
+  if (APP_ENV === 'prod') return null;
+  const color = APP_ENV === 'uat' ? 'bg-violet-600' : APP_ENV === 'sit' ? 'bg-sky-600' : 'bg-slate-700';
+  return (
+    <div className={`${color} py-1 text-center text-xs font-bold uppercase tracking-widest text-white`}>
+      {APP_ENV} environment · bukan toko produksi
+    </div>
+  );
+}
+
 export function Header({ cartCount, onCart }: { cartCount: number; onCart: () => void }) {
   return (
     <header className="sticky top-0 z-10 border-b border-orange-100 bg-[#fffaf2]/95 backdrop-blur">
+      <EnvBanner />
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
         <a href="#/" className="block">
           <p className="text-xs font-bold uppercase tracking-[.35em] text-orange-500">BeeShop</p>

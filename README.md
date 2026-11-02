@@ -25,24 +25,48 @@ Toko online untuk retail: katalog, keranjang, checkout, payment gateway (Midtran
 | BeePos-App | `PUT` stok absolut per SKU, `GET` penjualan online yang sudah dibayar sejak waktu tertentu. Dilindungi `BEEPOS_INTEGRATION_KEY` |
 
 ## Menjalankan lokal
+Tidak perlu menyiapkan env apa pun. Konfigurasi lokal sudah ada di `env/local.env` dan dibaca otomatis.
 ```bash
-cp .env.example .env            # isi ADMIN_BOOTSTRAP_* dan BEEPOS_INTEGRATION_KEY
-docker compose up -d postgres   # PostgreSQL di port 5433
-
-cd backend && ADMIN_BOOTSTRAP_USERNAME=owner ADMIN_BOOTSTRAP_PASSWORD=ganti-password-ini mvn spring-boot:run
+docker compose up -d postgres                  # PostgreSQL di port 5433
+cd backend && mvn spring-boot:run              # profile "local" aktif otomatis
 cd frontend && npm install && npm run dev
 ```
 - Storefront: http://localhost:5173
-- Admin: http://localhost:5173/#/admin (masuk dengan akun bootstrap, lalu buat akun staf di menu **Akun admin**)
+- Admin: http://localhost:5173/#/admin, login `admin` / `admin-lokal-123`
 - API: http://localhost:8081/api · Health: http://localhost:8081/actuator/health
 
 Atau jalankan semuanya dengan Docker: `docker compose --profile app up --build`.
 
-Tanpa `MIDTRANS_SERVER_KEY`, checkout diarahkan ke halaman **pembayaran simulasi** untuk menguji alur. Katalog contoh diisi otomatis saat database masih kosong (`SEED_DEMO_DATA=true`).
+Di lokal, pembayaran memakai **halaman simulasi**, ongkir memakai tarif simulasi, dan katalog contoh diisi otomatis. Kalau ingin mencoba Midtrans sandbox atau API ongkir sungguhan dari lokal, salin `env/local.override.env.example` ke `env/local.override.env` lalu isi key-nya. File itu di-ignore git.
+
+## Environment
+| | **local** | **sit** | **uat** | **prod** |
+|---|---|---|---|---|
+| Untuk | Laptop developer | QA / integrasi tim | Acceptance test oleh bisnis | Transaksi asli |
+| Sumber env | `env/local.env` (otomatis) | Secret/env server | Secret/env server | Secret manager |
+| Template | — | `env/sit.env.example` | `env/uat.env.example` | `env/prod.env.example` |
+| Payment | mock | mock / Midtrans sandbox | Midtrans **sandbox** (wajib) | Midtrans **production** (wajib) |
+| Ongkir | mock | mock / test key | API sungguhan (wajib) | API sungguhan (wajib) |
+| Data demo | ya | ya | tidak | tidak |
+| Log `com.bee.shop` | DEBUG | DEBUG | INFO | INFO (root WARN) |
+| Validasi saat start | — | — | ketat | ketat |
+| Frontend | `npm run dev` | `npm run build:sit` | `npm run build:uat` | `npm run build` |
+
+- **Config Spring:** `application.yml` berisi bagian yang sama untuk semua environment. Perbedaan per environment ada di `application-{local,sit,uat,prod}.yml`. Profile dipilih lewat `SPRING_PROFILES_ACTIVE`, dan defaultnya `local`.
+- **Secret** (password DB, key Midtrans/ongkir/BeePos) tidak pernah ditulis di yml, selalu dari environment variable. Yang boleh di-commit hanya `env/local.env` (khusus lokal) dan template `*.example`.
+- **Variabel wajib kosong:** aplikasi berhenti dengan pesan yang menyebut nama variabelnya.
+- **Validasi UAT/PROD** (`EnvironmentGuard`): aplikasi **menolak start** kalau salah satu kondisi ini terjadi:
+  - payment masih mock, atau key Midtrans tidak sesuai environment (prod tidak boleh key `SB-...`, UAT wajib key `SB-...`)
+  - ongkir masih mock
+  - CORS/storefront bukan https atau masih localhost
+  - password DB lemah
+  - `BEEPOS_INTEGRATION_KEY` kurang dari 32 karakter
+  - data demo aktif
+- **Frontend:** URL API per environment ada di `frontend/.env.{development,sit,uat,production}`. Ganti `<domain-anda>` dengan domain sebenarnya. Selain prod, storefront menampilkan banner nama environment. Untuk Docker: `docker build --build-arg BUILD_MODE=uat ./frontend`.
 
 ## Test
 ```bash
-cd backend && mvn test        # 36 test: checkout, stok, payment, admin & login, BeePos, adapter ongkir, migrasi Flyway
+cd backend && mvn test        # 40 test: checkout, stok, payment, admin & login, BeePos, adapter ongkir, Flyway, validasi config
 cd frontend && npm run build  # type-check + build
 ```
 
@@ -102,11 +126,14 @@ Skema dibuat dan diubah oleh **Flyway** saat aplikasi start. Untuk perubahan ske
 Kalau database lama sudah dibuat oleh `ddl-auto: update` versi sebelumnya, cara paling aman adalah membuat database baru. Kalau ingin tetap memakai database lama, set `FLYWAY_BASELINE_ON_MIGRATE=true` sekali. Pastikan dulu strukturnya sama dengan `V1__init.sql`.
 
 ## Konfigurasi production
-1. Isi `ADMIN_BOOTSTRAP_USERNAME` / `ADMIN_BOOTSTRAP_PASSWORD` untuk start pertama. Setelah login, ganti password lalu hapus kedua variabel itu. Isi juga `BEEPOS_INTEGRATION_KEY` dengan string acak panjang (`openssl rand -hex 32`). Kalau kosong, endpoint integrasi selalu menolak akses (fail-closed).
-2. Isi `MIDTRANS_SERVER_KEY` / `MIDTRANS_CLIENT_KEY` dan set `MIDTRANS_SANDBOX=false`. Daftarkan `https://<domain-api>/api/payments/midtrans/notification` sebagai Payment Notification URL di dashboard Midtrans.
-3. Set `CORS_ORIGINS` dan `STOREFRONT_URL` ke domain storefront.
-4. Set `SEED_DEMO_DATA=false`.
-5. Jalankan di belakang HTTPS (token admin dikirim lewat header). Kalau memakai reverse proxy, set `FORWARD_HEADERS_STRATEGY=framework`.
-6. Pilih provider ongkir (lihat bagian Ongkir) dan set `SHIPPING_PROVIDER` ke `rajaongkir` atau `biteship`.
+Ringkasnya: isi semua nilai di `env/prod.env.example` ke secret manager, set `SPRING_PROFILES_ACTIVE=prod`, lalu deploy. `EnvironmentGuard` akan menolak start kalau ada yang terlewat.
+
+1. Isi `ADMIN_BOOTSTRAP_USERNAME` / `ADMIN_BOOTSTRAP_PASSWORD` (minimal 16 karakter) untuk start pertama. Setelah login, ganti password lalu hapus kedua variabel itu.
+2. Isi `MIDTRANS_SERVER_KEY` / `MIDTRANS_CLIENT_KEY` dengan key production. Mode sandbox otomatis mati di profile prod. Daftarkan `https://<domain-api>/api/payments/midtrans/notification` sebagai Payment Notification URL di dashboard Midtrans.
+3. Set `CORS_ORIGINS` dan `STOREFRONT_URL` ke domain storefront (https).
+4. Pilih provider ongkir (lihat bagian Ongkir).
+5. Jalankan di belakang HTTPS. Profile prod sudah membaca header proxy (`X-Forwarded-*`) supaya IP login tercatat benar.
+
+Yang otomatis di profile prod: data demo mati, Midtrans production, log root WARN.
 
 Alur bisnis lengkap ada di [docs/business-flow.md](docs/business-flow.md).

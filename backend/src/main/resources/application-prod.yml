@@ -1,0 +1,24 @@
+# =====================================================================
+# PROD: transaksi sungguhan. Midtrans PRODUCTION, ongkir API sungguhan,
+# HTTPS saja, tanpa data demo. EnvironmentGuard menolak start bila
+# ada konfigurasi yang tidak aman (lihat config/EnvironmentGuard.java).
+# =====================================================================
+server:
+  forward-headers-strategy: framework
+
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+
+app:
+  seed-demo-data: false
+  payment:
+    provider: midtrans
+    sandbox: false
+
+logging:
+  level:
+    root: WARN
+    com.bee.shop: INFO
+    org.flywaydb: INFO

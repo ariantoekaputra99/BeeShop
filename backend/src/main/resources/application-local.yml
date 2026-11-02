@@ -1,0 +1,30 @@
+# =====================================================================
+# LOCAL: laptop developer.
+# Nilai dibaca dari env/local.env (sudah ada di repo, khusus lokal).
+# Override pribadi (mis. Midtrans sandbox key) taruh di env/local.override.env (di-ignore git).
+# Path relatif: ./ saat jalan dari root repo, ../ saat jalan dari folder backend/.
+# =====================================================================
+spring:
+  config:
+    import:
+      - optional:file:./env/local.env[.properties]
+      - optional:file:../env/local.env[.properties]
+      - optional:file:./env/local.override.env[.properties]
+      - optional:file:../env/local.override.env[.properties]
+
+app:
+  seed-demo-data: true
+  payment:
+    sandbox: true
+  order:
+    # Cek order kedaluwarsa lebih sering supaya mudah diuji
+    expiry-check-interval-ms: ${EXPIRY_CHECK_INTERVAL_MS:30000}
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.bee.shop: DEBUG
