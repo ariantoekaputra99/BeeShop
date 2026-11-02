@@ -1,28 +1,58 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Page, Product } from '../types';
 import { api, qs } from '../lib/api';
 import { money } from '../lib/format';
 import { Alert, ProductImage } from '../components/ui';
-import { ProductModal } from '../components/ProductModal';
+import { productPath } from '../lib/productLink';
 
 type Props = { onAdd: (p: Product, qty: number) => void; onCatalog: (products: Product[]) => void };
 
 const PAGE_SIZE = 12;
+const STATE_KEY = 'beeshop.catalogState';
+type CatalogState = { query: string; category: string; sort: string; page: number; scrollY: number };
+const initial = (): CatalogState => {
+  try { return { query: '', category: '', sort: 'name', page: 0, scrollY: 0, ...JSON.parse(sessionStorage.getItem(STATE_KEY) ?? '{}') }; }
+  catch { return { query: '', category: '', sort: 'name', page: 0, scrollY: 0 }; }
+};
 
 export function ShopPage({ onAdd, onCatalog }: Props) {
-  const [query, setQuery] = useState('');
-  const [debounced, setDebounced] = useState('');
-  const [category, setCategory] = useState('');
-  const [sort, setSort] = useState('name');
-  const [page, setPage] = useState(0);
+  // Filter, halaman, dan posisi scroll diingat supaya "Kembali" dari detail produk tidak mengulang dari atas
+  const [saved] = useState(initial);
+  const [query, setQuery] = useState(saved.query);
+  const [debounced, setDebounced] = useState(saved.query);
+  const [category, setCategory] = useState(saved.category);
+  const [sort, setSort] = useState(saved.sort);
+  const [page, setPage] = useState(saved.page);
+  const firstFilterRun = useRef(true);
+  const restoreScroll = useRef(saved.scrollY);
   const [categories, setCategories] = useState<string[]>([]);
   const [data, setData] = useState<Page<Product> | null>(null);
   const [error, setError] = useState('');
-  const [selected, setSelected] = useState<Product | null>(null);
 
   useEffect(() => { api<string[]>('/categories').then(setCategories).catch(() => setCategories([])); }, []);
   useEffect(() => { const t = setTimeout(() => setDebounced(query), 300); return () => clearTimeout(t); }, [query]);
-  useEffect(() => setPage(0), [debounced, category, sort]);
+  useEffect(() => {
+    if (firstFilterRun.current) { firstFilterRun.current = false; return; }
+    setPage(0);
+  }, [debounced, category, sort]);
+  // Simpan terus-menerus (bukan saat pindah halaman): saat hashchange, halaman ini sudah di-unmount lebih dulu
+  const scrollY = useRef(saved.scrollY);
+  useEffect(() => {
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => { scrollY.current = window.scrollY; persist(); });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame); };
+  });
+  const persist = () => {
+    try { sessionStorage.setItem(STATE_KEY, JSON.stringify({ query, category, sort, page, scrollY: scrollY.current })); } catch { /* abaikan */ }
+  };
+  useEffect(persist, [query, category, sort, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    if (data && restoreScroll.current) { window.scrollTo({ top: restoreScroll.current }); restoreScroll.current = 0; }
+  }, [data]);
   useEffect(() => {
     let alive = true;
     setError('');
@@ -83,15 +113,16 @@ export function ShopPage({ onAdd, onCatalog }: Props) {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {data?.content.map(p => (
             <article key={p.id} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-              <button className="block w-full text-left" onClick={() => setSelected(p)}>
+              <a href={`#${productPath(p)}`} className="block" aria-label={`Lihat detail ${p.name}`}>
                 <ProductImage src={p.imageUrl} alt={p.name} className="h-48 w-full" />
-              </button>
+              </a>
               <div className="p-5">
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>{p.category ?? 'Produk'}</span>
                   <span className={p.stock <= 5 ? 'font-semibold text-rose-600' : ''}>{p.stock > 0 ? `${p.stock} tersedia` : 'Stok habis'}</span>
                 </div>
-                <button onClick={() => setSelected(p)} className="mt-3 text-left text-xl font-bold hover:underline">{p.name}</button>
+                <a href={`#${productPath(p)}`} className="mt-3 block text-xl font-bold hover:underline">{p.name}</a>
+                {p.description && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description.split(/\n\s*\n/)[0]}</p>}
                 <p className="mt-2 text-2xl font-black text-orange-500">{money(p.price)}</p>
                 <button disabled={p.stock <= 0} onClick={() => onAdd(p, 1)} className="mt-5 w-full rounded-2xl bg-slate-900 py-3 font-bold text-white disabled:opacity-40">
                   {p.stock > 0 ? 'Tambah ke keranjang' : 'Stok habis'}
@@ -109,7 +140,6 @@ export function ShopPage({ onAdd, onCatalog }: Props) {
           </div>
         )}
       </section>
-      {selected && <ProductModal product={selected} onClose={() => setSelected(null)} onAdd={onAdd} />}
     </main>
   );
 }
