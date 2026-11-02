@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { DashboardStats, Order, OrderStatus, Page, Product } from '../types';
+import type { AdminRole, AdminSession, AdminUser, DashboardStats, Order, OrderStatus, Page, Product } from '../types';
 import { ApiError, api, qs } from '../lib/api';
 import { STATUS_LABEL, dateTime, money } from '../lib/format';
 import { Alert, Field, StatusBadge, inputCls } from '../components/ui';
 import { OrderDetail } from '../components/OrderDetail';
 
-const KEY_STORAGE = 'beeshop.adminKey';
+const SESSION_KEY = 'beeshop.adminSession';
 
 /** Cermin aturan transisi di backend (OrderStatus.java). PAID hanya dari payment gateway. */
 const NEXT: Record<OrderStatus, OrderStatus[]> = {
@@ -13,60 +13,89 @@ const NEXT: Record<OrderStatus, OrderStatus[]> = {
   SHIPPED: ['DELIVERED'], DELIVERED: [], CANCELLED: [], REFUNDED: [],
 };
 
-function readKey() { try { return sessionStorage.getItem(KEY_STORAGE) ?? ''; } catch { return ''; } }
-function writeKey(k: string) { try { k ? sessionStorage.setItem(KEY_STORAGE, k) : sessionStorage.removeItem(KEY_STORAGE); } catch { /* abaikan */ } }
+/** Token disimpan di sessionStorage: hilang saat tab ditutup, tidak ikut ke tab lain. */
+function readSession(): AdminSession | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    const s = raw ? (JSON.parse(raw) as AdminSession) : null;
+    return s && new Date(s.expiresAt) > new Date() ? s : null;
+  } catch { return null; }
+}
+function writeSession(s: AdminSession | null) {
+  try { s ? sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)) : sessionStorage.removeItem(SESSION_KEY); } catch { /* abaikan */ }
+}
+
+type Tab = 'dashboard' | 'orders' | 'products' | 'users' | 'profile';
+const TAB_LABEL: Record<Tab, string> = { dashboard: 'Ringkasan', orders: 'Pesanan', products: 'Produk', users: 'Akun admin', profile: 'Profil' };
 
 export function AdminPage() {
-  const [key, setKey] = useState(readKey);
-  const [tab, setTab] = useState<'dashboard' | 'orders' | 'products'>('dashboard');
-  const logout = () => { writeKey(''); setKey(''); };
+  const [session, setSession] = useState(readSession);
+  const [tab, setTab] = useState<Tab>('dashboard');
 
-  if (!key) return <Login onLogin={k => { writeKey(k); setKey(k); }} />;
+  const expire = useCallback(() => { writeSession(null); setSession(null); }, []);
+  const logout = async () => {
+    if (session) await api('/admin/auth/logout', { method: 'POST', token: session.token }).catch(() => undefined);
+    expire();
+  };
+
+  if (!session) return <Login onLogin={s => { writeSession(s); setSession(s); setTab('dashboard'); }} />;
+  const tabs: Tab[] = session.user.role === 'OWNER'
+    ? ['dashboard', 'orders', 'products', 'users', 'profile'] : ['dashboard', 'orders', 'products', 'profile'];
+  const props = { token: session.token, onAuthError: expire };
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-black">Admin</h1>
-        <div className="flex gap-2 text-sm font-semibold">
-          {(['dashboard', 'orders', 'products'] as const).map(t => (
+        <div>
+          <h1 className="text-3xl font-black">Admin</h1>
+          <p className="text-sm text-slate-500">{session.user.displayName} (@{session.user.username}) · {session.user.role}</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm font-semibold">
+          {tabs.map(t => (
             <button key={t} onClick={() => setTab(t)} className={`rounded-full px-4 py-2 ${tab === t ? 'bg-slate-900 text-white' : 'bg-white ring-1 ring-orange-100'}`}>
-              {{ dashboard: 'Ringkasan', orders: 'Pesanan', products: 'Produk' }[t]}
+              {TAB_LABEL[t]}
             </button>
           ))}
           <button onClick={logout} className="rounded-full px-4 py-2 text-slate-500 hover:bg-slate-100">Keluar</button>
         </div>
       </div>
-      {tab === 'dashboard' && <Dashboard adminKey={key} onAuthError={logout} />}
-      {tab === 'orders' && <Orders adminKey={key} onAuthError={logout} />}
-      {tab === 'products' && <Products adminKey={key} onAuthError={logout} />}
+      {tab === 'dashboard' && <Dashboard {...props} />}
+      {tab === 'orders' && <Orders {...props} />}
+      {tab === 'products' && <Products {...props} />}
+      {tab === 'users' && <Users {...props} me={session.user} />}
+      {tab === 'profile' && <Profile {...props} />}
     </main>
   );
 }
 
-type TabProps = { adminKey: string; onAuthError: () => void };
+type TabProps = { token: string; onAuthError: () => void };
 
-function useAdminApi({ adminKey, onAuthError }: TabProps) {
+function useAdminApi({ token, onAuthError }: TabProps) {
   return useCallback(async <T,>(path: string, opts: { method?: string; body?: unknown } = {}) => {
-    try { return await api<T>(path, { ...opts, adminKey }); }
+    try { return await api<T>(path, { ...opts, token }); }
     catch (e) { if (e instanceof ApiError && e.status === 401) onAuthError(); throw e; }
-  }, [adminKey, onAuthError]);
+  }, [token, onAuthError]);
 }
 
-function Login({ onLogin }: { onLogin: (k: string) => void }) {
-  const [value, setValue] = useState('');
+function Login({ onLogin }: { onLogin: (s: AdminSession) => void }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try { await api('/admin/dashboard', { adminKey: value }); onLogin(value); }
-    catch (err) { setError((err as ApiError).status === 401 ? 'Admin key salah.' : (err as Error).message); }
+    e.preventDefault(); setBusy(true); setError('');
+    try { onLogin(await api<AdminSession>('/admin/auth/login', { method: 'POST', body: { username, password } })); }
+    catch (err) { setError((err as Error).message); setPassword(''); }
+    finally { setBusy(false); }
   };
   return (
     <main className="mx-auto max-w-sm px-6 py-20">
       <form onSubmit={submit} className="space-y-4 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-orange-100">
         <h1 className="text-2xl font-black">Masuk admin</h1>
-        <Field label="Admin API key"><input type="password" required className={inputCls} value={value} onChange={e => setValue(e.target.value)} autoComplete="current-password" /></Field>
+        <Field label="Username"><input required className={inputCls} value={username} onChange={e => setUsername(e.target.value)} autoComplete="username" /></Field>
+        <Field label="Password"><input type="password" required className={inputCls} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></Field>
         {error && <Alert>{error}</Alert>}
-        <button className="w-full rounded-xl bg-slate-900 py-3 font-bold text-white">Masuk</button>
-        <p className="text-xs text-slate-500">Key diatur lewat env <code>ADMIN_API_KEY</code> di backend dan hanya disimpan di tab ini.</p>
+        <button disabled={busy} className="w-full rounded-xl bg-slate-900 py-3 font-bold text-white disabled:opacity-50">{busy ? 'Memeriksa...' : 'Masuk'}</button>
       </form>
     </main>
   );
@@ -292,5 +321,121 @@ function Products(props: TabProps) {
         </table>
       </div>
     </div>
+  );
+}
+
+function Users(props: TabProps & { me: AdminUser }) {
+  const call = useAdminApi(props);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [form, setForm] = useState({ username: '', displayName: '', password: '', role: 'STAFF' as AdminRole });
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+
+  const load = useCallback(() => { call<AdminUser[]>('/admin/users').then(setUsers).catch(e => setError(e.message)); }, [call]);
+  useEffect(load, [load]);
+
+  const create = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(''); setFields({}); setInfo('');
+    try {
+      await call('/admin/users', { method: 'POST', body: form });
+      setInfo(`Akun ${form.username} dibuat. Berikan password awal secara pribadi dan minta segera diganti.`);
+      setForm({ username: '', displayName: '', password: '', role: 'STAFF' }); load();
+    } catch (err) { setError((err as ApiError).message); setFields((err as ApiError).fields ?? {}); }
+  };
+
+  const patch = async (u: AdminUser, body: Record<string, unknown>, confirmText?: string) => {
+    if (confirmText && !confirm(confirmText)) return;
+    setError(''); setInfo('');
+    try { await call(`/admin/users/${u.id}`, { method: 'PATCH', body }); load(); }
+    catch (err) { setError((err as Error).message); }
+  };
+
+  const resetPassword = (u: AdminUser) => {
+    const pw = prompt(`Password baru untuk ${u.username} (min. 10 karakter):`);
+    if (pw) patch(u, { newPassword: pw }).then(() => setInfo(`Password ${u.username} direset. Sesi lamanya sudah dikeluarkan.`));
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="space-y-3">
+        {error && <Alert>{error}</Alert>}
+        {info && <Alert kind="success">{info}</Alert>}
+        <div className="overflow-x-auto rounded-3xl bg-white shadow-sm ring-1 ring-orange-100">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-orange-50 text-xs uppercase text-slate-500">
+              <tr><th className="p-3">Akun</th><th className="p-3">Role</th><th className="p-3">Login terakhir</th><th className="p-3" /></tr>
+            </thead>
+            <tbody className="divide-y">
+              {users.map(u => {
+                const self = u.id === props.me.id;
+                const locked = u.lockedUntil && new Date(u.lockedUntil) > new Date();
+                return (
+                  <tr key={u.id} className={u.active ? '' : 'text-slate-400'}>
+                    <td className="p-3"><b>{u.displayName}</b><p className="text-xs">@{u.username}{self && ' (Anda)'}{!u.active && ' · nonaktif'}{locked && ' · terkunci'}</p></td>
+                    <td className="p-3">
+                      <select disabled={self} value={u.role} onChange={e => patch(u, { role: e.target.value })} className="rounded-lg border px-2 py-1">
+                        <option value="OWNER">OWNER</option><option value="STAFF">STAFF</option>
+                      </select>
+                    </td>
+                    <td className="p-3">{dateTime(u.lastLoginAt)}</td>
+                    <td className="whitespace-nowrap p-3 text-right">
+                      <button onClick={() => resetPassword(u)} className="mr-3 underline">Reset password</button>
+                      {!self && (u.active
+                        ? <button onClick={() => patch(u, { active: false }, `Nonaktifkan ${u.username}? Sesi login-nya langsung berakhir.`)} className="text-rose-600 underline">Nonaktifkan</button>
+                        : <button onClick={() => patch(u, { active: true })} className="text-emerald-700 underline">Aktifkan</button>)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <form onSubmit={create} className="h-fit space-y-3 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-orange-100">
+        <h2 className="text-lg font-black">Tambah akun</h2>
+        <Field label="Username" error={fields.username}><input required className={inputCls} value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} autoComplete="off" /></Field>
+        <Field label="Nama tampilan" error={fields.displayName}><input required className={inputCls} value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} /></Field>
+        <Field label="Password awal (min. 10 karakter)" error={fields.password}><input required type="password" minLength={10} className={inputCls} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} autoComplete="new-password" /></Field>
+        <Field label="Role">
+          <select className={inputCls} value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as AdminRole }))}>
+            <option value="STAFF">STAFF: produk & pesanan</option>
+            <option value="OWNER">OWNER: semua, termasuk akun admin</option>
+          </select>
+        </Field>
+        <button className="w-full rounded-xl bg-slate-900 py-3 font-bold text-white">Buat akun</button>
+      </form>
+    </div>
+  );
+}
+
+function Profile(props: TabProps) {
+  const call = useAdminApi(props);
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [repeat, setRepeat] = useState('');
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(''); setInfo('');
+    if (next !== repeat) { setError('Konfirmasi password tidak sama.'); return; }
+    try {
+      await call('/admin/auth/password', { method: 'POST', body: { currentPassword: current, newPassword: next } });
+      setInfo('Password diganti. Sesi di perangkat lain sudah dikeluarkan.');
+      setCurrent(''); setNext(''); setRepeat('');
+    } catch (err) { setError((err as ApiError).fields?.newPassword ? 'Password baru minimal 10 karakter.' : (err as Error).message); }
+  };
+
+  return (
+    <form onSubmit={submit} className="max-w-md space-y-3 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-orange-100">
+      <h2 className="text-lg font-black">Ganti password</h2>
+      <Field label="Password saat ini"><input required type="password" className={inputCls} value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" /></Field>
+      <Field label="Password baru (min. 10 karakter)"><input required type="password" minLength={10} className={inputCls} value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" /></Field>
+      <Field label="Ulangi password baru"><input required type="password" className={inputCls} value={repeat} onChange={e => setRepeat(e.target.value)} autoComplete="new-password" /></Field>
+      {error && <Alert>{error}</Alert>}
+      {info && <Alert kind="success">{info}</Alert>}
+      <button className="w-full rounded-xl bg-slate-900 py-3 font-bold text-white">Simpan</button>
+    </form>
   );
 }

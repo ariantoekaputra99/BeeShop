@@ -1,5 +1,6 @@
 package com.bee.shop.service;
 
+import com.bee.shop.auth.AdminPrincipal;
 import com.bee.shop.dto.*;
 import com.bee.shop.entity.*;
 import com.bee.shop.exception.BusinessException;
@@ -79,16 +80,16 @@ public class AdminService {
         PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
                 Sort.by("createdAt").descending());
         return PageResponse.of(orders.search(status, q == null ? "" : q.trim(), pageable),
-                o -> OrderResponse.from(o, payments.findByOrder_Id(o.getId()).orElse(null)));
+                o -> OrderResponse.forAdmin(o, payments.findByOrder_Id(o.getId()).orElse(null)));
     }
 
     @Transactional(readOnly = true)
     public OrderResponse getOrder(String orderNumber) {
         Order o = findOrder(orderNumber);
-        return OrderResponse.from(o, payments.findByOrder_Id(o.getId()).orElse(null));
+        return OrderResponse.forAdmin(o, payments.findByOrder_Id(o.getId()).orElse(null));
     }
 
-    public OrderResponse updateStatus(String orderNumber, OrderStatusUpdateRequest r) {
+    public OrderResponse updateStatus(String orderNumber, OrderStatusUpdateRequest r, AdminPrincipal admin) {
         Order o = findOrder(orderNumber);
         if (r.status() == OrderStatus.PAID) {
             throw new BusinessException("Status PAID hanya boleh di-set oleh payment gateway");
@@ -101,8 +102,8 @@ public class AdminService {
         }
         String note = r.note() != null && !r.note().isBlank() ? r.note().trim()
                 : r.status() == OrderStatus.SHIPPED ? "Dikirim, resi " + o.getTrackingNumber() : "Diperbarui admin";
-        lifecycle.transition(o, r.status(), note);
-        return OrderResponse.from(o, payments.findByOrder_Id(o.getId()).orElse(null));
+        lifecycle.transition(o, r.status(), note, admin.actor());
+        return OrderResponse.forAdmin(o, payments.findByOrder_Id(o.getId()).orElse(null));
     }
 
     @Transactional(readOnly = true)

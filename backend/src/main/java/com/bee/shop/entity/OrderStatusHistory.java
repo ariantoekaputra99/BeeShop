@@ -27,6 +27,10 @@ public class OrderStatusHistory {
     @Column(length = 500)
     private String note;
 
+    /** Siapa yang mengubah: customer, system, payment:midtrans, admin:&lt;username&gt;. */
+    @Column(length = 80)
+    private String actor;
+
     @Column(nullable = false)
     private OffsetDateTime createdAt;
 }

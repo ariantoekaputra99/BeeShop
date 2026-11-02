@@ -20,7 +20,13 @@ export type Order = {
   paymentStatus?: string; paymentType?: string; paymentRedirectUrl?: string;
   createdAt: string; expiresAt?: string; paidAt?: string; shippedAt?: string; deliveredAt?: string; cancelledAt?: string;
   items: { sku: string; productName: string; quantity: number; unitPrice: number; lineTotal: number }[];
-  history: { status: OrderStatus; note?: string; at: string }[];
+  history: { status: OrderStatus; note?: string; at: string; actor?: string }[];
 };
 export type DashboardStats = { revenue: number; ordersByStatus: Record<OrderStatus, number>; activeProducts: number; lowStockProducts: number };
+export type AdminRole = 'OWNER' | 'STAFF';
+export type AdminUser = {
+  id: number; username: string; displayName: string; role: AdminRole; active: boolean;
+  lastLoginAt?: string; lockedUntil?: string; createdAt: string;
+};
+export type AdminSession = { token: string; expiresAt: string; user: AdminUser };
 export type ApiErrorBody = { status: number; message: string; fields?: Record<string, string> };

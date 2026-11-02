@@ -59,6 +59,20 @@ public abstract class TestSupport {
         return json.readTree(result.andReturn().getResponse().getContentAsString());
     }
 
+    protected String login(String username, String password) throws Exception {
+        return read(postJson("/api/admin/auth/login", Map.of("username", username, "password", password))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk()))
+                .get("token").asText();
+    }
+
+    protected String ownerToken() throws Exception {
+        return login("owner", "owner-password-123");
+    }
+
+    protected static String bearer(String token) {
+        return "Bearer " + token;
+    }
+
     protected int stockOf(Product p) {
         return products.findById(p.getId()).orElseThrow().getStock();
     }

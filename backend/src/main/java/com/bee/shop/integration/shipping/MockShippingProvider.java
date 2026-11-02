@@ -20,15 +20,21 @@ public class MockShippingProvider implements ShippingProvider {
             new Rate("anteraja:REG", "AnterAja", "REG", "1-3 hari", "2-4 hari", 9_000, 16_000)
     );
 
+    private final String originCity;
+
+    public MockShippingProvider(String originCity) {
+        this.originCity = originCity;
+    }
+
     @Override
     public String name() {
         return "mock";
     }
 
     @Override
-    public List<ShippingOption> quote(String originCity, String destinationCity, String postalCode, int weightGram) {
-        boolean sameCity = originCity.trim().equalsIgnoreCase(destinationCity.trim());
-        long kg = Math.max(1, (weightGram + 999) / 1000);
+    public List<ShippingOption> quote(ShipmentRequest request) {
+        boolean sameCity = originCity.trim().equalsIgnoreCase(request.destinationCity().trim());
+        long kg = Math.max(1, (request.weightGram() + 999) / 1000);
         return RATES.stream()
                 .map(r -> new ShippingOption(r.code(), r.courier(), r.service(),
                         sameCity ? r.etdSameCity() : r.etdOther(),

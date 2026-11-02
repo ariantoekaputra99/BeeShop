@@ -20,9 +20,18 @@ public record OrderResponse(
 ) {
     public record Item(String sku, String productName, int quantity, BigDecimal unitPrice, BigDecimal lineTotal) {}
 
-    public record History(String status, String note, OffsetDateTime at) {}
+    public record History(String status, String note, OffsetDateTime at, String actor) {}
 
-    public static OrderResponse from(Order o, Payment p) {
+    /** Untuk pelanggan: nama akun admin tidak ditampilkan. */
+    public static OrderResponse forCustomer(Order o, Payment p) {
+        return build(o, p, false);
+    }
+
+    public static OrderResponse forAdmin(Order o, Payment p) {
+        return build(o, p, true);
+    }
+
+    private static OrderResponse build(Order o, Payment p, boolean includeActor) {
         boolean showPaymentLink = p != null && "PENDING_PAYMENT".equals(o.getStatus().name());
         return new OrderResponse(
                 o.getOrderNumber(), o.getStatus().name(),
@@ -37,7 +46,8 @@ public record OrderResponse(
                 o.getShippedAt(), o.getDeliveredAt(), o.getCancelledAt(),
                 o.getItems().stream().map(i -> new Item(i.getSku(), i.getProductName(), i.getQuantity(),
                         i.getUnitPrice(), i.getLineTotal())).toList(),
-                o.getHistory().stream().map(h -> new History(h.getStatus().name(), h.getNote(), h.getCreatedAt())).toList()
+                o.getHistory().stream().map(h -> new History(h.getStatus().name(), h.getNote(), h.getCreatedAt(),
+                        includeActor ? h.getActor() : null)).toList()
         );
     }
 }

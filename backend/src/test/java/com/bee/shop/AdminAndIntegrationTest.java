@@ -17,29 +17,35 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class AdminAndIntegrationTest extends TestSupport {
 
-    static final String ADMIN = "X-Admin-Key";
+    static final String AUTH = "Authorization";
+    String token;
+
+    @org.junit.jupiter.api.BeforeEach
+    void loginOwner() throws Exception {
+        token = bearer(ownerToken());
+    }
 
     @Test
-    void adminApiRequiresKey() throws Exception {
+    void adminApiRequiresSession() throws Exception {
         mvc.perform(get("/api/admin/orders")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/admin/orders").header(ADMIN, "salah")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/admin/orders").header(ADMIN, "test-admin-key")).andExpect(status().isOk());
+        mvc.perform(get("/api/admin/orders").header(AUTH, "Bearer salah")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/admin/orders").header(AUTH, token)).andExpect(status().isOk());
     }
 
     @Test
     void adminManagesProducts() throws Exception {
         String body = json.writeValueAsString(Map.of("name", "Gula 1kg", "sku", "GP-001", "price", 17500,
                 "stock", 20, "weightGram", 1000, "category", "Sembako"));
-        String id = json.readTree(mvc.perform(post("/api/admin/products").header(ADMIN, "test-admin-key")
+        String id = json.readTree(mvc.perform(post("/api/admin/products").header(AUTH, token)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
 
-        mvc.perform(post("/api/admin/products").header(ADMIN, "test-admin-key")
+        mvc.perform(post("/api/admin/products").header(AUTH, token)
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isConflict());
 
-        mvc.perform(delete("/api/admin/products/" + id).header(ADMIN, "test-admin-key")).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/admin/products/" + id).header(AUTH, token)).andExpect(status().isNoContent());
         mvc.perform(get("/api/products/" + id)).andExpect(status().isNotFound());
-        mvc.perform(get("/api/admin/products/" + id).header(ADMIN, "test-admin-key"))
+        mvc.perform(get("/api/admin/products/" + id).header(AUTH, token))
                 .andExpect(jsonPath("$.active").value(false));
     }
 
@@ -56,12 +62,16 @@ class AdminAndIntegrationTest extends TestSupport {
         patchStatus(n, Map.of("status", "PROCESSING")).andExpect(status().isOk());
         patchStatus(n, Map.of("status", "SHIPPED")).andExpect(status().isUnprocessableEntity());
         patchStatus(n, Map.of("status", "SHIPPED", "trackingNumber", "SCP123456"))
-                .andExpect(jsonPath("$.trackingNumber").value("SCP123456"));
+                .andExpect(jsonPath("$.trackingNumber").value("SCP123456"))
+                .andExpect(jsonPath("$.history[3].actor").value("admin:owner"));
+        // Pelanggan tidak melihat username admin
+        postJson("/api/orders/" + n + "/lookup", Map.of("email", "budi@example.com"))
+                .andExpect(jsonPath("$.history[3].actor").doesNotExist());
         patchStatus(n, Map.of("status", "DELIVERED")).andExpect(jsonPath("$.status").value("DELIVERED"));
 
-        mvc.perform(get("/api/admin/orders").param("status", "DELIVERED").header(ADMIN, "test-admin-key"))
+        mvc.perform(get("/api/admin/orders").param("status", "DELIVERED").header(AUTH, token))
                 .andExpect(jsonPath("$.totalElements").value(1));
-        mvc.perform(get("/api/admin/dashboard").header(ADMIN, "test-admin-key"))
+        mvc.perform(get("/api/admin/dashboard").header(AUTH, token))
                 .andExpect(jsonPath("$.ordersByStatus.DELIVERED").value(1))
                 .andExpect(jsonPath("$.lowStockProducts").value(1));
     }
@@ -81,8 +91,8 @@ class AdminAndIntegrationTest extends TestSupport {
                 Map.of("sku", "BR-005", "stock", 50), Map.of("sku", "TIDAK-ADA", "stock", 1))));
         mvc.perform(put("/api/integrations/beepos/stock").contentType(MediaType.APPLICATION_JSON).content(payload))
                 .andExpect(status().isUnauthorized());
-        // Admin key tidak berlaku untuk integrasi
-        mvc.perform(put("/api/integrations/beepos/stock").header(ADMIN, "test-admin-key")
+        // Sesi admin tidak berlaku untuk integrasi
+        mvc.perform(put("/api/integrations/beepos/stock").header(AUTH, token)
                 .contentType(MediaType.APPLICATION_JSON).content(payload)).andExpect(status().isUnauthorized());
         mvc.perform(put("/api/integrations/beepos/stock").header("X-Integration-Key", "test-integration-key")
                         .contentType(MediaType.APPLICATION_JSON).content(payload))
@@ -102,7 +112,7 @@ class AdminAndIntegrationTest extends TestSupport {
     }
 
     private org.springframework.test.web.servlet.ResultActions patchStatus(String n, Map<String, ?> body) throws Exception {
-        return mvc.perform(patch("/api/admin/orders/" + n + "/status").header(ADMIN, "test-admin-key")
+        return mvc.perform(patch("/api/admin/orders/" + n + "/status").header(AUTH, token)
                 .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)));
     }
 }

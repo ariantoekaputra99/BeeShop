@@ -96,9 +96,9 @@ public class Order {
         item.setOrder(this);
     }
 
-    public void addHistory(OrderStatus status, String note) {
+    public void addHistory(OrderStatus status, String note, String actor) {
         history.add(OrderStatusHistory.builder()
-                .order(this).status(status).note(note).createdAt(OffsetDateTime.now()).build());
+                .order(this).status(status).note(note).actor(actor).createdAt(OffsetDateTime.now()).build());
     }
 
     @PrePersist

@@ -10,7 +10,7 @@ import java.time.OffsetDateTime;
 @Component
 public class OrderLifecycle {
 
-    public void transition(Order order, OrderStatus next, String note) {
+    public void transition(Order order, OrderStatus next, String note, String actor) {
         OrderStatus current = order.getStatus();
         if (!current.canTransitionTo(next)) {
             throw new BusinessException("Status tidak dapat diubah dari " + current + " ke " + next);
@@ -27,7 +27,7 @@ public class OrderLifecycle {
             default -> { }
         }
         order.setStatus(next);
-        order.addHistory(next, note);
+        order.addHistory(next, note, actor);
     }
 
     private void restoreStock(Order order) {

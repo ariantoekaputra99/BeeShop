@@ -1,6 +1,8 @@
 package com.bee.shop.controller.admin;
 
+import com.bee.shop.auth.AdminPrincipal;
 import com.bee.shop.dto.*;
+import jakarta.servlet.http.HttpServletRequest;
 import com.bee.shop.entity.OrderStatus;
 import com.bee.shop.service.AdminService;
 import com.bee.shop.service.CatalogService;
@@ -9,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-/** Semua endpoint di sini dilindungi header X-Admin-Key (lihat ApiKeyFilter). */
+/** Semua endpoint di sini butuh sesi login admin (lihat AuthFilter). */
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
@@ -72,7 +74,8 @@ public class AdminController {
     }
 
     @PatchMapping("/orders/{orderNumber}/status")
-    public OrderResponse updateStatus(@PathVariable String orderNumber, @Valid @RequestBody OrderStatusUpdateRequest request) {
-        return admin.updateStatus(orderNumber, request);
+    public OrderResponse updateStatus(@PathVariable String orderNumber, @Valid @RequestBody OrderStatusUpdateRequest request,
+                                      HttpServletRequest http) {
+        return admin.updateStatus(orderNumber, request, AdminPrincipal.from(http));
     }
 }

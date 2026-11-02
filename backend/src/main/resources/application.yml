@@ -1,5 +1,7 @@
 server:
   port: ${SERVER_PORT:8081}
+  # Set "framework" bila di belakang reverse proxy (nginx, load balancer) agar IP klien terbaca benar
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
   error:
     include-message: never
     include-stacktrace: never
@@ -11,9 +13,15 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/beeshop}
     username: ${SPRING_DATASOURCE_USERNAME:beeuser}
     password: ${SPRING_DATASOURCE_PASSWORD:bee123}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Untuk database lama yang tabelnya dibuat ddl-auto: set FLYWAY_BASELINE_ON_MIGRATE=true sekali.
+    baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      # Skema dikelola Flyway; Hibernate hanya memvalidasi kecocokan entity dengan tabel.
+      ddl-auto: validate
     open-in-view: false
   jackson:
     default-property-inclusion: non_null
@@ -27,11 +35,17 @@ management:
 app:
   cors-origins: ${CORS_ORIGINS:http://localhost:5173}
   storefront-url: ${STOREFRONT_URL:http://localhost:5173}
-  # Wajib diisi untuk mengakses /api/admin/**. Kosong = admin API ditutup.
-  admin-api-key: ${ADMIN_API_KEY:}
   # Wajib diisi untuk mengakses /api/integrations/beepos/**. Kosong = integrasi ditutup.
   integration-api-key: ${BEEPOS_INTEGRATION_KEY:}
   seed-demo-data: ${SEED_DEMO_DATA:true}
+  admin:
+    # Hanya dipakai saat tabel admin kosong untuk membuat OWNER pertama.
+    bootstrap-username: ${ADMIN_BOOTSTRAP_USERNAME:}
+    bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+    session-hours: ${ADMIN_SESSION_HOURS:12}
+    max-failed-attempts: ${ADMIN_MAX_FAILED_ATTEMPTS:5}
+    lock-minutes: ${ADMIN_LOCK_MINUTES:15}
+    login-attempts-per-ip: ${ADMIN_LOGIN_ATTEMPTS_PER_IP:20}
   order:
     payment-timeout-minutes: ${PAYMENT_TIMEOUT_MINUTES:60}
     expiry-check-interval-ms: ${EXPIRY_CHECK_INTERVAL_MS:60000}
@@ -42,6 +56,13 @@ app:
     client-key: ${MIDTRANS_CLIENT_KEY:}
     sandbox: ${MIDTRANS_SANDBOX:true}
   shipping:
+    # mock | rajaongkir | biteship
     provider: ${SHIPPING_PROVIDER:mock}
     api-key: ${SHIPPING_API_KEY:}
     origin-city: ${SHIPPING_ORIGIN_CITY:Jakarta}
+    # Biteship: kode pos asal pengiriman
+    origin-postal-code: ${SHIPPING_ORIGIN_POSTAL_CODE:}
+    # RajaOngkir: ID destinasi asal (cari via destination/domestic-destination)
+    origin-id: ${SHIPPING_ORIGIN_ID:}
+    couriers: ${SHIPPING_COURIERS:jne,sicepat,jnt,anteraja}
+    cache-ttl-minutes: ${SHIPPING_CACHE_TTL_MINUTES:10}

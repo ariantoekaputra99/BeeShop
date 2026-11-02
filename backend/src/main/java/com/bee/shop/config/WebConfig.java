@@ -16,7 +16,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOrigins(props.corsOrigins().toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                .allowedHeaders("Content-Type", ApiKeyFilter.ADMIN_HEADER)
+                .allowedHeaders("Content-Type", "Authorization")
                 .maxAge(3600);
     }
 }

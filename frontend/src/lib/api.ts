@@ -6,12 +6,12 @@ export class ApiError extends Error {
   constructor(public status: number, message: string, public fields?: Record<string, string>) { super(message); }
 }
 
-type Options = { method?: string; body?: unknown; adminKey?: string };
+type Options = { method?: string; body?: unknown; token?: string };
 
-export async function api<T>(path: string, { method = 'GET', body, adminKey }: Options = {}): Promise<T> {
+export async function api<T>(path: string, { method = 'GET', body, token }: Options = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (adminKey) headers['X-Admin-Key'] = adminKey;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });

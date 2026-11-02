@@ -6,6 +6,7 @@ import com.bee.shop.entity.*;
 import com.bee.shop.exception.BusinessException;
 import com.bee.shop.exception.NotFoundException;
 import com.bee.shop.integration.payment.PaymentGateway;
+import com.bee.shop.integration.shipping.ShipmentRequest;
 import com.bee.shop.repository.OrderRepository;
 import com.bee.shop.repository.PaymentRepository;
 import com.bee.shop.repository.ProductRepository;
@@ -26,6 +27,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class OrderService {
+
+    static final String ACTOR_CUSTOMER = "customer";
+    static final String ACTOR_SYSTEM = "system";
 
     private final ProductRepository products;
     private final OrderRepository orders;
@@ -65,7 +69,7 @@ public class OrderService {
             init = gateway.createPayment(order, props.order().paymentTimeoutMinutes());
         } catch (RuntimeException e) {
             tx.executeWithoutResult(status -> orders.findById(orderId).ifPresent(o ->
-                    lifecycle.transition(o, OrderStatus.CANCELLED, "Gagal membuat sesi pembayaran")));
+                    lifecycle.transition(o, OrderStatus.CANCELLED, "Gagal membuat sesi pembayaran", ACTOR_SYSTEM)));
             throw e;
         }
 
@@ -126,7 +130,8 @@ public class OrderService {
             p.setStock(p.getStock() - qty);
         }
 
-        ShippingOption option = shipping.resolve(request.shippingCode(), order.getCity(), order.getPostalCode(), weight);
+        ShippingOption option = shipping.resolve(request.shippingCode(),
+                new ShipmentRequest(order.getCity(), order.getPostalCode(), weight, subtotal));
         order.setCourier(option.courier());
         order.setCourierService(option.service());
         order.setShippingEtd(option.etd());
@@ -134,14 +139,14 @@ public class OrderService {
         order.setTotalWeightGram(weight);
         order.setSubtotal(subtotal);
         order.setTotal(subtotal.add(option.fee()));
-        order.addHistory(OrderStatus.PENDING_PAYMENT, "Order dibuat, menunggu pembayaran");
+        order.addHistory(OrderStatus.PENDING_PAYMENT, "Order dibuat, menunggu pembayaran", ACTOR_CUSTOMER);
         return orders.save(order).getId();
     }
 
     @Transactional(readOnly = true)
     public OrderResponse track(String orderNumber, String email) {
         Order order = findForCustomer(orderNumber, email);
-        return OrderResponse.from(order, payments.findByOrder_Id(order.getId()).orElse(null));
+        return OrderResponse.forCustomer(order, payments.findByOrder_Id(order.getId()).orElse(null));
     }
 
     @Transactional
@@ -150,10 +155,10 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new BusinessException("Order yang sudah dibayar tidak bisa dibatalkan sendiri. Hubungi admin.");
         }
-        lifecycle.transition(order, OrderStatus.CANCELLED, "Dibatalkan oleh pelanggan");
+        lifecycle.transition(order, OrderStatus.CANCELLED, "Dibatalkan oleh pelanggan", ACTOR_CUSTOMER);
         Payment payment = payments.findByOrder_Id(order.getId()).orElse(null);
         if (payment != null) payment.setStatus(PaymentStatus.FAILED);
-        return OrderResponse.from(order, payment);
+        return OrderResponse.forCustomer(order, payment);
     }
 
     /** Membatalkan order yang melewati batas waktu pembayaran dan mengembalikan stoknya. */
@@ -165,7 +170,7 @@ public class OrderService {
                 Boolean done = tx.execute(status -> orders.findById(id)
                         .filter(o -> o.getStatus() == OrderStatus.PENDING_PAYMENT)
                         .map(o -> {
-                            lifecycle.transition(o, OrderStatus.CANCELLED, "Batas waktu pembayaran habis");
+                            lifecycle.transition(o, OrderStatus.CANCELLED, "Batas waktu pembayaran habis", ACTOR_SYSTEM);
                             payments.findByOrder_Id(o.getId()).ifPresent(p -> p.setStatus(PaymentStatus.EXPIRED));
                             return true;
                         }).orElse(false));

@@ -67,6 +67,10 @@ public class PaymentService {
         apply(order, payment, success ? Outcome.PAID : Outcome.FAILED, "Pembayaran simulasi");
     }
 
+    private String actor() {
+        return "payment:" + gateway.name();
+    }
+
     static Outcome map(String transactionStatus, String fraudStatus) {
         if (transactionStatus == null) return Outcome.IGNORED;
         return switch (transactionStatus) {
@@ -86,19 +90,19 @@ public class PaymentService {
                 payment.setStatus(PaymentStatus.PAID);
                 payment.setPaidAt(OffsetDateTime.now());
                 if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
-                    lifecycle.transition(order, OrderStatus.PAID, note);
+                    lifecycle.transition(order, OrderStatus.PAID, note, actor());
                 } else {
                     // Dana masuk setelah order dibatalkan/expired: stok sudah dilepas, perlu refund manual.
                     log.error("Pembayaran diterima untuk order {} berstatus {}", order.getOrderNumber(), order.getStatus());
                     order.addHistory(order.getStatus(), "Pembayaran diterima setelah order " + order.getStatus()
-                            + ". Perlu refund manual.");
+                            + ". Perlu refund manual.", actor());
                 }
             }
             case FAILED, EXPIRED -> {
                 if (payment.getStatus() == PaymentStatus.PAID) return;
                 payment.setStatus(outcome == Outcome.EXPIRED ? PaymentStatus.EXPIRED : PaymentStatus.FAILED);
                 if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
-                    lifecycle.transition(order, OrderStatus.CANCELLED, note);
+                    lifecycle.transition(order, OrderStatus.CANCELLED, note, actor());
                 }
             }
             case PENDING, IGNORED -> { }

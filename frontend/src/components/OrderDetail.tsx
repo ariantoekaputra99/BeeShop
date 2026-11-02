@@ -55,7 +55,7 @@ export function OrderDetail({ order }: { order: Order }) {
         <ol className="space-y-2 border-l-2 border-orange-200 pl-4 text-sm">
           {order.history.map((h, i) => (
             <li key={i}>
-              <b>{STATUS_LABEL[h.status]}</b> <span className="text-slate-500">· {dateTime(h.at)}</span>
+              <b>{STATUS_LABEL[h.status]}</b> <span className="text-slate-500">· {dateTime(h.at)}{h.actor && ` · ${h.actor}`}</span>
               {h.note && <p className="text-slate-600">{h.note}</p>}
             </li>
           ))}
