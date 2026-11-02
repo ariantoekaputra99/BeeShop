@@ -28,7 +28,7 @@ Toko online untuk retail: katalog, keranjang, checkout, payment gateway (Midtran
 Tidak perlu menyiapkan env apa pun. Konfigurasi lokal sudah ada di `env/local.env` dan dibaca otomatis.
 ```bash
 docker compose up -d postgres                  # PostgreSQL di port 5433
-cd backend && mvn spring-boot:run              # profile "local" aktif otomatis
+cd backend && ./mvnw spring-boot:run            # profile "local" aktif otomatis (Windows: mvnw.cmd)
 cd frontend && npm install && npm run dev
 ```
 - Storefront: http://localhost:5173
@@ -66,7 +66,7 @@ Di lokal, pembayaran memakai **halaman simulasi**, ongkir memakai tarif simulasi
 
 ## Test
 ```bash
-cd backend && mvn test        # 40 test: checkout, stok, payment, admin & login, BeePos, adapter ongkir, Flyway, validasi config
+cd backend && ./mvnw test      # 40 test: checkout, stok, payment, admin & login, BeePos, adapter ongkir, Flyway, validasi config
 cd frontend && npm run build  # type-check + build
 ```
 
