@@ -18,7 +18,8 @@ class EnvironmentGuardTest {
                 seed,
                 new AppProperties.Order(60, 60000),
                 new AppProperties.Payment(paymentProvider, serverKey, "client-key", sandbox),
-                new AppProperties.Shipping(shipping, "ship-key", "Jakarta", "12440", null, List.of("jne"), 10));
+                new AppProperties.Shipping(shipping, "ship-key", "Jakarta", "12440", null, List.of("jne"), 10),
+                new AppProperties.Storage("./data/images", 5_242_880, 1600));
     }
 
     @Test

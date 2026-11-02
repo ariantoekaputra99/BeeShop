@@ -21,6 +21,7 @@ Toko online untuk retail: katalog, keranjang, checkout, payment gateway (Midtran
 | Lifecycle order | `PENDING_PAYMENT → PAID → PROCESSING → SHIPPED → DELIVERED`, plus `CANCELLED` / `REFUNDED`. Transisi divalidasi, ada riwayat status, stok dikembalikan otomatis saat batal/refund |
 | Auto-expire | Order yang tidak dibayar melewati `PAYMENT_TIMEOUT_MINUTES` dibatalkan dan stoknya dilepas |
 | Lacak pesanan | Pelanggan cek status, resi, dan riwayat dengan nomor order + email. Order yang belum dibayar bisa dibatalkan |
+| Gambar produk | Upload dari panel admin (JPG/PNG/WebP, maks 5 MB). Jenis file divalidasi dari isinya, orientasi foto HP diperbaiki, gambar diperkecil ke 1600 px, dan metadata/GPS dihapus |
 | Admin | Akun per orang (username + password BCrypt), role OWNER/STAFF, sesi token 12 jam, akun terkunci setelah 5 kali gagal, batas login per IP. Ringkasan, kelola produk, proses order + resi. Setiap perubahan status mencatat siapa pelakunya |
 | BeePos-App | `PUT` stok absolut per SKU, `GET` penjualan online yang sudah dibayar sejak waktu tertentu. Dilindungi `BEEPOS_INTEGRATION_KEY` |
 
@@ -66,7 +67,7 @@ Di lokal, pembayaran memakai **halaman simulasi**, ongkir memakai tarif simulasi
 
 ## Test
 ```bash
-cd backend && ./mvnw test      # 40 test: checkout, stok, payment, admin & login, BeePos, adapter ongkir, Flyway, validasi config
+cd backend && ./mvnw test      # 52 test: checkout, stok, payment, admin & login, BeePos, adapter ongkir, Flyway, validasi config, upload gambar
 cd frontend && npm run build  # type-check + build
 ```
 
@@ -81,6 +82,7 @@ cd frontend && npm run build  # type-check + build
 | POST | `/api/checkout` | Membuat order + sesi pembayaran. `shippingCode` dari hasil cek ongkir |
 | POST | `/api/orders/{orderNumber}/lookup` | `{email}` → detail & riwayat order |
 | POST | `/api/orders/{orderNumber}/cancel` | `{email}` → batalkan order yang belum dibayar |
+| GET | `/api/images/{nama}` | Gambar produk hasil upload |
 | GET | `/api/payments/config` | Provider aktif + Midtrans client key |
 | POST | `/api/payments/midtrans/notification` | Webhook Midtrans (Payment Notification URL) |
 | POST | `/api/payments/mock/{orderNumber}?result=success\|failed` | Hanya aktif di mode mock |
@@ -90,7 +92,7 @@ Login: `POST /api/admin/auth/login` dengan body `{username, password}` → `{tok
 
 Khusus OWNER: `GET|POST /api/admin/users`, `PATCH /api/admin/users/{id}` dengan body `{displayName?, role?, active?, newPassword?}`.
 
-Lainnya (OWNER & STAFF): `GET /api/admin/dashboard` · `GET|POST /api/admin/products` · `GET|PUT|DELETE /api/admin/products/{id}` · `GET /api/admin/orders?status=&q=` · `GET /api/admin/orders/{orderNumber}` · `PATCH /api/admin/orders/{orderNumber}/status` dengan body `{status, trackingNumber?, note?}`
+Lainnya (OWNER & STAFF): `POST /api/admin/uploads/images` (multipart, field `file`) → `{url, width, height}` · `GET /api/admin/dashboard` · `GET|POST /api/admin/products` · `GET|PUT|DELETE /api/admin/products/{id}` · `GET /api/admin/orders?status=&q=` · `GET /api/admin/orders/{orderNumber}` · `PATCH /api/admin/orders/{orderNumber}/status` dengan body `{status, trackingNumber?, note?}`
 
 ### BeePos-App (header `X-Integration-Key`)
 - `PUT /api/integrations/beepos/stock` dengan body `{items:[{sku, stock}]}` → `{updated, unknownSkus}`
@@ -119,6 +121,11 @@ SHIPPING_ORIGIN_POSTAL_CODE=12440
 ```
 
 Kalau provider error atau timeout, pelanggan melihat pesan "Layanan cek ongkir sedang tidak tersedia" dan detail error tercatat di log. Kalau rute tidak dilayani, pelanggan melihat "Belum ada layanan pengiriman ke alamat ini".
+
+## Gambar produk
+File gambar disimpan di folder `IMAGE_DIR`. Di lokal defaultnya `./data/images`, relatif terhadap folder tempat backend dijalankan. Di database, yang disimpan hanya path relatif `/api/images/<uuid>.jpg`, sehingga data bisa dipindah antar environment tanpa mengubah URL.
+
+Di SIT/UAT/PROD, `IMAGE_DIR` **wajib** berupa volume persisten. Image Docker sudah memakai `/app/data` sebagai volume. Backup folder ini bersama database. Kalau nanti backend dijalankan lebih dari 1 instance, pindahkan penyimpanan ke object storage (S3/R2/MinIO) dengan mengganti implementasi `ImageStorage`.
 
 ## Database & migrasi
 Skema dibuat dan diubah oleh **Flyway** saat aplikasi start. Untuk perubahan skema, tambahkan file baru `V2__deskripsi.sql`, `V3__...`, dan jangan pernah mengedit file migrasi yang sudah berjalan. Hibernate memakai `ddl-auto: validate`, jadi aplikasi gagal start kalau entity tidak cocok dengan tabel. Dengan begitu ketidakcocokan ketahuan sejak awal, bukan saat runtime.

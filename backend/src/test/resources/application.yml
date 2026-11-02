@@ -26,3 +26,5 @@ app:
   shipping:
     provider: mock
     origin-city: Jakarta
+  storage:
+    image-dir: target/test-images

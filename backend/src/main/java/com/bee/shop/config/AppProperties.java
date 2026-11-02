@@ -14,8 +14,18 @@ public record AppProperties(
         @DefaultValue("false") boolean seedDemoData,
         @DefaultValue Order order,
         @DefaultValue Payment payment,
-        @DefaultValue Shipping shipping
+        @DefaultValue Shipping shipping,
+        @DefaultValue Storage storage
 ) {
+    public record Storage(
+            /** Folder penyimpanan gambar produk. Di server, arahkan ke volume persisten. */
+            @DefaultValue("./data/images") String imageDir,
+            /** Batas ukuran file upload (byte). Selaraskan dengan spring.servlet.multipart.max-file-size. */
+            @DefaultValue("5242880") long maxImageBytes,
+            /** Sisi terpanjang setelah resize (px). */
+            @DefaultValue("1600") int maxImageDimension
+    ) {}
+
     public record Admin(
             /** Dipakai sekali saat tabel admin masih kosong untuk membuat akun OWNER pertama. */
             String bootstrapUsername,

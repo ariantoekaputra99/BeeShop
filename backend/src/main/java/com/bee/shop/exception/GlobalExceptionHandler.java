@@ -50,6 +50,22 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Request tidak valid", null);
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> tooLarge(Exception ex) {
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran file terlalu besar (maksimal 5 MB)", null);
+    }
+
+    @ExceptionHandler({org.springframework.web.multipart.MultipartException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class})
+    public ResponseEntity<ApiError> badMultipart(Exception ex) {
+        return build(HttpStatus.BAD_REQUEST, "Upload tidak valid: kirim file di field 'file'", null);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> mediaType(Exception ex) {
+        return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Content-Type request tidak didukung", null);
+    }
+
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ApiError> conflict(OptimisticLockingFailureException ex) {
         return build(HttpStatus.CONFLICT, "Data sedang diperbarui, silakan coba lagi", null);
